@@ -5,7 +5,6 @@ from datetime import datetime
 from scipy.stats import entropy
 from scipy.signal import periodogram
 from statsmodels.tsa.stattools import pacf
-from statsmodels.tsa.seasonal import seasonal_decompose
 
 SEED = 42
 # ============================
@@ -158,20 +157,11 @@ def mase_feature(y):
 # Trend and seasonality
 # ============================
 def trend_features(y):
-    result = {"trend_slope": np.nan, "seasonal_strength": np.nan}
+    result = {"trend_slope": np.nan}
     try:
         x = np.arange(len(y))
         slope, _ = np.polyfit(x, y, 1)
         result["trend_slope"] = slope
-    except:
-        pass
-    try:
-        decomposition = seasonal_decompose(
-            y, period=SEASONAL_PERIOD, model="additive", extrapolate_trend="freq"
-        )
-        resid_var = np.var(decomposition.resid.dropna())
-        seasonal_var = np.var(decomposition.seasonal.dropna())
-        result["seasonal_strength"] = seasonal_var / (seasonal_var + resid_var)
     except:
         pass
     return result
