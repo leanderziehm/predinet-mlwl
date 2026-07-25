@@ -24,3 +24,6 @@ p4:
 p5:
 	python3 ./src/pipeline/E_evaluate.py
 ```
+
+old repo: 
+https://mygit.th-deg.de/ml-wlan/predinet
