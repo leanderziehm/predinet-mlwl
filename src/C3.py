@@ -13,7 +13,7 @@ import pickle
 # ==========================================================
 SEED = 42
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-PREVIOUS_OUTPUT = "output/C1_quantile_forecasting"
+PREVIOUS_OUTPUT = "output/C1_forcasting_preprocessing"
 OUT_DIR = "output/C2_train"
 MODEL_DIR = os.path.join(OUT_DIR, "models")
 TABLE_DIR = os.path.join(OUT_DIR, "tables")
@@ -237,11 +237,13 @@ def run_experiment(X, y, name, target_mean, target_std):
 def main():
     print("Running on:", DEVICE)
     print("Loading preprocessing output...")
+    print(PREVIOUS_OUTPUT)
     X = np.load(os.path.join(PREVIOUS_OUTPUT, "preprocess", "X.npy"), mmap_mode="r")
     y = np.load(os.path.join(PREVIOUS_OUTPUT, "preprocess", "y.npy"), mmap_mode="r")
     cluster_ids = np.load(
         os.path.join(PREVIOUS_OUTPUT, "preprocess", "cluster_ids.npy")
     )
+    print(cluster_ids)
     with open(os.path.join(PREVIOUS_OUTPUT, "preprocess", "scaler.pkl"), "rb") as f:
         scaler = pickle.load(f)
 
