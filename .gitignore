@@ -8,6 +8,7 @@ degs
 *.csv
 *.pdf
 *.md
+!selected_cells_unseen.csv
 !requirements.txt
 !README.md
 other
