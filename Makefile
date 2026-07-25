@@ -3,4 +3,4 @@
 1:
 	uv run ./src/B_cluster.py
 2:
-	C1_forcasting_preprocessing.py
+	uv run ./src/C1_forcasting_preprocessing.py
