@@ -40,7 +40,8 @@ FREQ = "15min"
 # Forecasting
 # ----------------------------------------------------------
 
-C1_LOOKBACK = 96
+# C1_LOOKBACK = 96
+C1_LOOKBACK = 672 #96*7
 HORIZON = 288
 
 FORECAST_LAGS = [
@@ -56,6 +57,7 @@ FORECAST_ROLLING_WINDOWS = [
     4,
     16,
     96,
+    672
 ]
 
 FORECAST_FEATURE_COLUMNS = [
