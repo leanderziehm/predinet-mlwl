@@ -180,7 +180,7 @@ def train_model(model, train_loader, val_loader, name, target_mean, target_std):
 # ==========================================================
 # EXPERIMENT
 # ==========================================================
-def run_experiment(X, y, name):
+def run_experiment(X, y, name, target_mean, target_std):
     split = int(len(X) * 0.8)
     X_train = X[:split]
     X_val = X[split:]
@@ -207,7 +207,9 @@ def run_experiment(X, y, name):
             bidirectional=bidir,
         )
         model_name = name + "_BiLSTM" if bidir else name + "_LSTM"
-        loss = train_model(model, train_loader, val_loader, model_name)
+        loss = train_model(
+            model, train_loader, val_loader, model_name, target_mean, target_std
+        )
         results.append({"model": model_name, "loss": loss})
     return results
 
@@ -257,7 +259,7 @@ def main():
         mask = cluster_ids == cluster
         Xc = X[mask]
         yc = y[mask]
-        result = run_experiment(Xc, yc, f"cluster_{cluster}")
+        result = run_experiment(Xc, yc, f"cluster_{cluster}", TARGET_MEAN, TARGET_STD)
         all_results.extend(result)
     pd.DataFrame(all_results).to_csv(
         os.path.join(TABLE_DIR, "model_comparison.csv"), index=False
