@@ -1,7 +1,6 @@
 import os
 import json
 import pickle
-import random
 import numpy as np
 import pandas as pd
 import torch
@@ -24,8 +23,8 @@ from pipeline_common import (
 # ==========================================================
 # CONFIGURATION
 # ==========================================================
-PREVIOUS_OUTPUT = "output/PC_tree"
-OUT_DIR = "output/PD_four"
+PREVIOUS_OUTPUT = "output/C"
+OUT_DIR = "output/D"
 MODEL_DIR = os.path.join(
     OUT_DIR,
     "models",

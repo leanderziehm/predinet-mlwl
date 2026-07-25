@@ -22,7 +22,7 @@ from pipeline_common import (
 # ==========================================================
 # CONFIGURATION
 # ==========================================================
-CLUSTER_PATH = "output/PB_two/" "tables/cluster_assignments.csv"
+CLUSTER_PATH = "output/B/" "tables/cluster_assignments.csv"
 SEED = 42
 
 
@@ -32,7 +32,7 @@ SEED = 42
 def create_output_directory():
     path = os.path.join(
         "output",
-        "PC_tree",
+        "C",
     )
     folders = [
         "models",

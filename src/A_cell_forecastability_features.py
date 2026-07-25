@@ -17,7 +17,7 @@ from pipeline_common import (
 def make_output_dir():
     out_dir = os.path.join(
         "output",
-        "PA_one",
+        "A",
     )
     os.makedirs(
         os.path.join(

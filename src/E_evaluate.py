@@ -24,14 +24,14 @@ from pipeline_common import (
 # ==========================================================
 # CONFIGURATION
 # ==========================================================
-C1_DIR = "output/PC_tree"
+C_DIR = "output/C"
 PREPROCESS_DIR = os.path.join(
-    C1_DIR,
+    C_DIR,
     "preprocess",
 )
-C2_DIR = "output/PD_four"
+D_DIR = "output/D"
 MODEL_DIR = os.path.join(
-    C2_DIR,
+    D_DIR,
     "models",
 )
 ORIGINAL_DATA = "UL_PRB_data_set.csv"
@@ -39,18 +39,18 @@ UNSEEN_DATA = "selected_cells_unseen.csv"
 # ----------------------------------------------------------
 # B artifacts
 # ----------------------------------------------------------
-B_DIR = "output/PB_two"
+B_DIR = "output/B"
 B_MODEL_PATH = os.path.join(
     B_DIR,
     "models",
     "cluster_pipeline.pkl",
 )
-B_FEATURE_FILE = "output/PA_one/tables/" "cell_forecastability_features.csv"
-B_ASSIGNMENTS_FILE = "output/PB_two/tables/" "cluster_assignments.csv"
+B_FEATURE_FILE = "output/A/tables/" "cell_forecastability_features.csv"
+B_ASSIGNMENTS_FILE = "output/B/tables/" "cluster_assignments.csv"
 # ----------------------------------------------------------
 # Output
 # ----------------------------------------------------------
-OUT_DIR = "output/PE_five"
+OUT_DIR = "output/E"
 TABLE_DIR = os.path.join(
     OUT_DIR,
     "tables",
