@@ -16,7 +16,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 # ==========================================================
 SEED = 42
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-PREVIOUS_OUTPUT = "output/C1_quantile_forecasting"
+PREVIOUS_OUTPUT = "output/C1_forcasting_preprocessing"
 LOOKBACK = 96
 HORIZON = 288
 EPOCHS = 50

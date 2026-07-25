@@ -23,7 +23,7 @@ random.seed(SEED)
 # OUTPUT MANAGEMENT
 # ==========================================================
 def create_output_directory():
-    path = os.path.join("output", "C1_quantile_forecasting")
+    path = os.path.join("output", "C1_forcasting_preprocessing")
     folders = [
         "models",
         "models/global",
@@ -81,11 +81,51 @@ def validate_data(df):
 # ==========================================================
 def add_clusters(df):
     log("Loading cluster assignments")
+
     clusters = pd.read_csv(CLUSTER_PATH)
+
+    print("\n========== B_CLUSTER FILE ==========")
+    print(clusters.head())
+    print("\nCluster distribution:")
+    print(clusters["cluster"].value_counts().sort_index())
+
+    print("\nUnique cluster IDs:")
+    print(sorted(clusters["cluster"].unique()))
+
+    print("\nNumber of cells in cluster file:")
+    print(clusters["series_id"].nunique())
+
+    print("\n========== DATA BEFORE MERGE ==========")
+    print("Dataset cells:", df["Short name"].nunique())
+    print("Example dataset IDs:")
+    print(df["Short name"].unique()[:10])
+
+    print("\nExample cluster IDs:")
+    print(clusters["series_id"].unique()[:10])
+
+    # Check ID overlap
+    overlap = set(df["Short name"]).intersection(set(clusters["series_id"]))
+
+    print("\nID overlap:")
+    print(len(overlap), "cells")
+
     df = df.merge(clusters, left_on="Short name", right_on="series_id", how="left")
+
+    print("\n========== AFTER MERGE ==========")
+    print(df["cluster"].value_counts(dropna=False).sort_index())
+
     missing = df["cluster"].isna().sum()
+
     log(f"Rows without cluster: {missing}")
+
+    if missing > 0:
+        print("\nCells without clusters:")
+        print(df.loc[df["cluster"].isna(), "Short name"].unique()[:20])
+
+        raise RuntimeError("Cluster merge failed. Missing cluster assignments.")
+
     df["cluster"] = df["cluster"].astype(int)
+
     return df
 
 
