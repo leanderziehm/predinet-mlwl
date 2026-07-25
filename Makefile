@@ -15,3 +15,5 @@
 	python3 ./src/C1_forcasting_preprocessing.py
 03:
 	python3 ./src/C2_train.py
+04:
+	python3 ./src/C3.py
