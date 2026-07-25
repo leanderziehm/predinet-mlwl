@@ -6,6 +6,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
+import pickle
 
 # ==========================================================
 # CONFIGURATION
@@ -93,7 +94,7 @@ class QuantileLSTM(nn.Module):
 # ==========================================================
 # TRAINING
 # ==========================================================
-def train_model(model, train_loader, val_loader, name):
+def train_model(model, train_loader, val_loader, name, target_mean, target_std):
     model.to(DEVICE)
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -123,6 +124,7 @@ def train_model(model, train_loader, val_loader, name):
         # ----------------------
         model.eval()
         val_losses = []
+        real_maes = []
         with torch.no_grad():
             for X, y in val_loader:
                 X = X.to(DEVICE, non_blocking=True)
@@ -130,8 +132,16 @@ def train_model(model, train_loader, val_loader, name):
                 pred = model(X)
                 loss = multi_quantile_loss(pred, y)
                 val_losses.append(loss.item())
+                # q50 prediction
+                pred_q50 = pred[:, :, 1]
+                # inverse scaling
+                pred_real = pred_q50.cpu().numpy() * target_std + target_mean
+                y_real = y.cpu().numpy() * target_std + target_mean
+                mae = np.mean(np.abs(pred_real - y_real))
+                real_maes.append(mae)
         train_mean = np.mean(train_losses)
         val_mean = np.mean(val_losses)
+        real_mae = np.mean(real_maes)
         scheduler.step(val_mean)
         lr = optimizer.param_groups[0]["lr"]
         history["train"].append(train_mean)
@@ -140,8 +150,9 @@ def train_model(model, train_loader, val_loader, name):
         print(
             f"{name} | "
             f"epoch {epoch:02d} | "
-            f"train {train_mean:.6f} | "
-            f"val {val_mean:.6f} | "
+            f"train_scaled {train_mean:.6f} | "
+            f"val_scaled {val_mean:.6f} | "
+            f"MAE_real {real_mae:.6f} | "
             f"lr {lr:.6f}"
         )
         # Save best
@@ -212,6 +223,19 @@ def main():
     cluster_ids = np.load(
         os.path.join(PREVIOUS_OUTPUT, "preprocess", "cluster_ids.npy")
     )
+    with open(os.path.join(PREVIOUS_OUTPUT, "preprocess", "scaler.pkl"), "rb") as f:
+        scaler = pickle.load(f)
+
+    with open(
+        os.path.join(PREVIOUS_OUTPUT, "preprocess", "feature_columns.pkl"), "rb"
+    ) as f:
+        feature_columns = pickle.load(f)
+
+    target_index = feature_columns.index("N.PRB.UL.DrbUsed.Avg[%]")
+
+    TARGET_MEAN = scaler.mean_[target_index]
+    TARGET_STD = scaler.scale_[target_index]
+
     # ======================================================
     # CLUSTER CHECK
     # ======================================================
