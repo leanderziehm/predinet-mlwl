@@ -178,10 +178,13 @@ def main():
     print("Running on:", DEVICE)
     X = np.load(os.path.join(PREVIOUS_OUTPUT, "preprocess", "X.npy"), mmap_mode="r")
     y = np.load(os.path.join(PREVIOUS_OUTPUT, "preprocess", "y.npy"), mmap_mode="r")
+
+    print(PREVIOUS_OUTPUT)
     cluster_ids = np.load(
         os.path.join(PREVIOUS_OUTPUT, "preprocess", "cluster_ids.npy")
     )
     all_results = []
+    print("cluster_ids",cluster_ids)
     print("Training CLUSTER models")
     clusters = np.unique(cluster_ids)
     for cluster in clusters:

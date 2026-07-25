@@ -190,6 +190,23 @@ def create_sequences(cell_df, feature_columns):
 # ==========================================================
 def prepare_sequences(df):
     log("Preparing sequences")
+
+    print("\n" + "=" * 70)
+    print("DEBUG: PREPARE SEQUENCES START")
+    print("=" * 70)
+
+    print("\nData shape entering prepare_sequences:")
+    print(df.shape)
+
+    print("\nColumns:")
+    print(df.columns.tolist())
+
+    print("\nCluster column check:")
+    print(df["cluster"].dtype)
+    print(df["cluster"].unique())
+    print(df["cluster"].value_counts(dropna=False).sort_index())
+
+
     feature_columns = [
         TARGET,
         "N.ThpVol.UL",
@@ -212,31 +229,168 @@ def prepare_sequences(df):
         "prb_std_16",
         "prb_mean_96",
         "prb_std_96",
-        "cluster",
+        # REMOVE THIS:
+        # "cluster",
     ]
-    with open(os.path.join(OUT_DIR, "preprocess", "feature_columns.pkl"), "wb") as f:
+
+
+    with open(
+        os.path.join(
+            OUT_DIR,
+            "preprocess",
+            "feature_columns.pkl"
+        ),
+        "wb"
+    ) as f:
         pickle.dump(feature_columns, f)
+
+
+    print("\nFeature columns:")
+    print(feature_columns)
+
+
+    print("\nBefore scaling:")
+    print(df["cluster"].value_counts().sort_index())
+
+
     scaler = StandardScaler()
-    df[feature_columns] = scaler.fit_transform(df[feature_columns]).astype(np.float32)
-    with open(os.path.join(OUT_DIR, "preprocess", "scaler.pkl"), "wb") as f:
+
+    df[feature_columns] = scaler.fit_transform(
+        df[feature_columns]
+    ).astype(np.float32)
+
+
+    print("\nAfter scaling:")
+    print("Cluster still:")
+    print(df["cluster"].dtype)
+    print(df["cluster"].unique())
+    print(df["cluster"].value_counts().sort_index())
+
+
+    with open(
+        os.path.join(
+            OUT_DIR,
+            "preprocess",
+            "scaler.pkl"
+        ),
+        "wb"
+    ) as f:
         pickle.dump(scaler, f)
+
+
     X_all = []
     y_all = []
     cluster_all = []
     metadata = []
+
+
+    print("\n" + "=" * 70)
+    print("DEBUG: LOOPING CELLS")
+    print("=" * 70)
+
+
+    cluster_cell_counter = {}
+
+
     for cell, cell_df in df.groupby("Short name"):
-        Xc, yc, meta, cluster = create_sequences(cell_df, feature_columns)
+
+        cell_cluster_values = cell_df["cluster"].unique()
+
+        if len(cell_cluster_values) != 1:
+            print(
+                "WARNING MULTIPLE CLUSTERS:",
+                cell,
+                cell_cluster_values
+            )
+
+        cluster = int(cell_df["cluster"].iloc[0])
+
+
+        cluster_cell_counter[cluster] = (
+            cluster_cell_counter.get(cluster, 0) + 1
+        )
+
+
+        Xc, yc, meta, cluster = create_sequences(
+            cell_df,
+            feature_columns
+        )
+
+
+        print(
+            f"Cell={cell} | "
+            f"cluster={cluster} | "
+            f"rows={len(cell_df)} | "
+            f"sequences={len(Xc)}"
+        )
+
+
+        if cluster < 0:
+            print("!!!!!! NEGATIVE CLUSTER FOUND !!!!!!")
+            print(cell)
+            print(cell_df.head())
+            raise RuntimeError(
+                "Negative cluster during sequence creation"
+            )
+
+
         X_all.append(Xc)
         y_all.append(yc)
-        cluster_all.extend([cluster] * len(Xc))
+
+        cluster_all.extend(
+            [cluster] * len(Xc)
+        )
+
         metadata.append(meta)
+
+
+    print("\n" + "=" * 70)
+    print("DEBUG: CELL CLUSTER COUNTS")
+    print("=" * 70)
+
+    print(cluster_cell_counter)
+
+
     X = np.concatenate(X_all)
     y = np.concatenate(y_all)
-    cluster_ids = np.array(cluster_all, dtype=np.int32)
-    log(f"Total sequences: {len(X)}")
-    return (X, y, cluster_ids, metadata)
+
+    cluster_ids = np.array(
+        cluster_all,
+        dtype=np.int32
+    )
 
 
+    print("\n" + "=" * 70)
+    print("DEBUG: FINAL ARRAYS")
+    print("=" * 70)
+
+    print("X shape:", X.shape)
+    print("y shape:", y.shape)
+    print("cluster_ids shape:", cluster_ids.shape)
+
+    print("\nFinal cluster distribution:")
+    print(
+        pd.Series(cluster_ids)
+        .value_counts()
+        .sort_index()
+    )
+
+    print("\nFinal unique clusters:")
+    print(np.unique(cluster_ids))
+
+
+    if -1 in cluster_ids:
+        raise RuntimeError(
+            "FINAL cluster_ids contains -1"
+        )
+
+
+    return (
+        X,
+        y,
+        cluster_ids,
+        metadata
+    )
 # ==========================================================
 # MAIN
 # ==========================================================
@@ -253,6 +407,21 @@ def main_preprocessing():
         pickle.dump(metadata, f)
     log("Preprocessing completed")
     log(f"Output saved to {OUT_DIR}")
+    print("\n========== FINAL CHECK BEFORE SAVING ==========")
+
+    print("cluster_all length:", len(cluster_ids))
+
+    final_clusters = np.array(cluster_ids)
+
+    print(pd.Series(final_clusters).value_counts().sort_index())
+
+    print("Unique clusters:")
+    print(np.unique(final_clusters))
+
+    if -1 in final_clusters:
+        raise RuntimeError("FOUND -1 BEFORE SAVE")
+
+    print("Saving correct cluster_ids.npy")
 
 
 if __name__ == "__main__":
