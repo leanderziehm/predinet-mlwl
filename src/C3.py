@@ -91,6 +91,12 @@ class QuantileLSTM(nn.Module):
         return out
 
 
+def inverse_mae(pred, target, mean, std):
+    pred_real = pred * std + mean
+    target_real = target * std + mean
+    return np.mean(np.abs(pred_real - target_real))
+
+
 # ==========================================================
 # TRAINING
 # ==========================================================
@@ -109,12 +115,21 @@ def train_model(model, train_loader, val_loader, name, target_mean, target_std):
         # ----------------------
         model.train()
         train_losses = []
+        train_maes = []
         for X, y in train_loader:
             X = X.to(DEVICE, non_blocking=True)
             y = y.to(DEVICE, non_blocking=True)
             optimizer.zero_grad()
             pred = model(X)
             loss = multi_quantile_loss(pred, y)
+            train_pred_q50 = pred[:, :, 1]
+            train_mae = inverse_mae(
+                train_pred_q50.detach().cpu().numpy(),
+                y.detach().cpu().numpy(),
+                target_mean,
+                target_std,
+            )
+            train_maes.append(train_mae)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
@@ -141,18 +156,20 @@ def train_model(model, train_loader, val_loader, name, target_mean, target_std):
                 real_maes.append(mae)
         train_mean = np.mean(train_losses)
         val_mean = np.mean(val_losses)
-        real_mae = np.mean(real_maes)
         scheduler.step(val_mean)
         lr = optimizer.param_groups[0]["lr"]
         history["train"].append(train_mean)
         history["val"].append(val_mean)
         history["lr"].append(lr)
+        train_mae_real = np.mean(train_maes)
+        val_mae_real = np.mean(real_maes)
         print(
             f"{name} | "
             f"epoch {epoch:02d} | "
             f"train_scaled {train_mean:.6f} | "
             f"val_scaled {val_mean:.6f} | "
-            f"MAE_real {real_mae:.6f} | "
+            f"train_MAE {train_mae_real:.6f} | "
+            f"val_MAE {val_mae_real:.6f} | "
             f"lr {lr:.6f}"
         )
         # Save best
