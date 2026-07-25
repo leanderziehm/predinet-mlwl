@@ -17,3 +17,15 @@
 	python3 ./src/C2_train.py
 04:
 	python3 ./src/C3.py
+
+
+p1:
+	python3 ./src/pipeline/A_one.py
+p2:
+	python3 ./src/pipeline/B_two.py
+p3:
+	python3 ./src/pipeline/C_three.py
+p4:
+	python3 ./src/pipeline/D_four.py
+p5:
+	python3 ./src/pipeline/E_five.py
