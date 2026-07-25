@@ -6,7 +6,8 @@ output
 *.csv
 *.pdf
 *.md
--README.md
+!requirements.txt
+!README.md
 other
 # Byte-compiled / optimized / DLL files
 __pycache__/
