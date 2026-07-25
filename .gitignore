@@ -1,5 +1,7 @@
 output
 *.json
+*.pt
+degs
 *.png
 *.txt
 *.pkl
