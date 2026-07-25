@@ -1,5 +1,4 @@
 import os
-import json
 import pickle
 import random
 import numpy as np
@@ -14,9 +13,8 @@ SEED = 42
 DATA_PATH = "UL_PRB_data_set.csv"
 CLUSTER_PATH = "output/B_cluster/tables/cluster_assignments.csv"
 TARGET = "N.PRB.UL.DrbUsed.Avg[%]"
-LOOKBACK = 96  # 1 day history
-HORIZON = 288  # 3 days forecast
-TEST_DAYS = 7
+LOOKBACK = 96
+HORIZON = 288
 np.random.seed(SEED)
 random.seed(SEED)
 
@@ -25,8 +23,7 @@ random.seed(SEED)
 # OUTPUT MANAGEMENT
 # ==========================================================
 def create_output_directory():
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    path = os.path.join("output", "quantile_forecasting_" + timestamp)
+    path = os.path.join("output", "C1_quantile_forecasting")
     folders = [
         "models",
         "models/global",
@@ -73,21 +70,21 @@ def validate_data(df):
     missing = df.isna().sum().sum()
     log(f"Duplicate rows: {duplicates}")
     log(f"Missing values: {missing}")
-    expected = df.groupby("Short name").size()
-    log("Cells:" + str(len(expected)))
-    log("Expected timestamps per cell:" + str(expected.unique()))
+    cells = df.groupby("Short name").size()
+    log(f"Cells: {len(cells)}")
+    log(f"Expected timestamps per cell: {cells.unique()}")
     return df
 
 
 # ==========================================================
-# ADD CLUSTER INFORMATION
+# ADD CLUSTERS
 # ==========================================================
 def add_clusters(df):
     log("Loading cluster assignments")
     clusters = pd.read_csv(CLUSTER_PATH)
     df = df.merge(clusters, left_on="Short name", right_on="series_id", how="left")
-    missing_clusters = df["cluster"].isna().sum()
-    log(f"Rows without cluster: {missing_clusters}")
+    missing = df["cluster"].isna().sum()
+    log(f"Rows without cluster: {missing}")
     df["cluster"] = df["cluster"].astype(int)
     return df
 
@@ -97,31 +94,24 @@ def add_clusters(df):
 # ==========================================================
 def create_features(df):
     log("Creating features")
-    # -------------------------
     # Time features
-    # -------------------------
     df["hour"] = df["Date"].dt.hour
     df["dayofweek"] = df["Date"].dt.dayofweek
     df["hour_sin"] = np.sin(2 * np.pi * df["hour"] / 24)
     df["hour_cos"] = np.cos(2 * np.pi * df["hour"] / 24)
     df["dow_sin"] = np.sin(2 * np.pi * df["dayofweek"] / 7)
     df["dow_cos"] = np.cos(2 * np.pi * df["dayofweek"] / 7)
-    # -------------------------
-    # Derived features
-    # -------------------------
+    # Derived feature
     df["throughput_per_user"] = df["N.ThpVol.UL"] / (
         df["N.User.RRCConn.Active.UL.Avg"] + 1
     )
+    # Difference
     df["prb_change"] = df.groupby("Short name")[TARGET].diff()
-    # -------------------------
     # Lag features
-    # -------------------------
     lags = [1, 2, 4, 8, 96, 672]
     for lag in lags:
         df[f"prb_lag_{lag}"] = df.groupby("Short name")[TARGET].shift(lag)
-    # -------------------------
     # Rolling statistics
-    # -------------------------
     windows = [4, 16, 96]
     for w in windows:
         df[f"prb_mean_{w}"] = df.groupby("Short name")[TARGET].transform(
@@ -138,27 +128,25 @@ def create_features(df):
 # CREATE SEQUENCES
 # ==========================================================
 def create_sequences(cell_df, feature_columns):
-    X = []
-    y = []
-    meta = []
-    values = cell_df[feature_columns].values
-    target = cell_df[TARGET].values
-    dates = cell_df["Date"].values
-    for i in range(len(cell_df) - LOOKBACK - HORIZON):
-        X.append(values[i : i + LOOKBACK])
-        y.append(target[i + LOOKBACK : i + LOOKBACK + HORIZON])
-        meta.append(
-            {
-                "cell": cell_df["Short name"].iloc[i],
-                "cluster": cell_df["cluster"].iloc[i],
-                "start": dates[i + LOOKBACK],
-            }
-        )
-    return (np.array(X), np.array(y), meta)
+    values = cell_df[feature_columns].values.astype(np.float32)
+    target = cell_df[TARGET].values.astype(np.float32)
+    n_samples = len(cell_df) - LOOKBACK - HORIZON
+    X = np.empty((n_samples, LOOKBACK, len(feature_columns)), dtype=np.float32)
+    y = np.empty((n_samples, HORIZON), dtype=np.float32)
+    for i in range(n_samples):
+        X[i] = values[i : i + LOOKBACK]
+        y[i] = target[i + LOOKBACK : i + LOOKBACK + HORIZON]
+    cluster = int(cell_df["cluster"].iloc[0])
+    meta = {
+        "cell": cell_df["Short name"].iloc[0],
+        "cluster": cluster,
+        "start": cell_df["Date"].values[LOOKBACK : LOOKBACK + n_samples],
+    }
+    return X, y, meta, cluster
 
 
 # ==========================================================
-# PREPARE COMPLETE DATASET
+# PREPARE DATASET
 # ==========================================================
 def prepare_sequences(df):
     log("Preparing sequences")
@@ -189,43 +177,40 @@ def prepare_sequences(df):
     with open(os.path.join(OUT_DIR, "preprocess", "feature_columns.pkl"), "wb") as f:
         pickle.dump(feature_columns, f)
     scaler = StandardScaler()
-    df[feature_columns] = scaler.fit_transform(df[feature_columns])
+    df[feature_columns] = scaler.fit_transform(df[feature_columns]).astype(np.float32)
     with open(os.path.join(OUT_DIR, "preprocess", "scaler.pkl"), "wb") as f:
         pickle.dump(scaler, f)
-    all_X = []
-    all_y = []
-    all_meta = []
-    cluster_data = {}
+    X_all = []
+    y_all = []
+    cluster_all = []
+    metadata = []
     for cell, cell_df in df.groupby("Short name"):
-        X, y, meta = create_sequences(cell_df, feature_columns)
-        all_X.extend(X)
-        all_y.extend(y)
-        all_meta.extend(meta)
-        cluster = cell_df["cluster"].iloc[0]
-        if cluster not in cluster_data:
-            cluster_data[cluster] = [[], [], []]
-        cluster_data[cluster][0].extend(X)
-        cluster_data[cluster][1].extend(y)
-        cluster_data[cluster][2].extend(meta)
-    log(f"Total sequences: {len(all_X)}")
-    return (np.array(all_X), np.array(all_y), all_meta, cluster_data)
+        Xc, yc, meta, cluster = create_sequences(cell_df, feature_columns)
+        X_all.append(Xc)
+        y_all.append(yc)
+        cluster_all.extend([cluster] * len(Xc))
+        metadata.append(meta)
+    X = np.concatenate(X_all)
+    y = np.concatenate(y_all)
+    cluster_ids = np.array(cluster_all, dtype=np.int32)
+    log(f"Total sequences: {len(X)}")
+    return (X, y, cluster_ids, metadata)
 
 
 # ==========================================================
-# MAIN PREPROCESSING
+# MAIN
 # ==========================================================
 def main_preprocessing():
     df = load_dataset()
     validate_data(df)
     df = add_clusters(df)
     df = create_features(df)
-    X, y, meta, cluster_data = prepare_sequences(df)
+    X, y, cluster_ids, metadata = prepare_sequences(df)
     np.save(os.path.join(OUT_DIR, "preprocess", "X.npy"), X)
     np.save(os.path.join(OUT_DIR, "preprocess", "y.npy"), y)
+    np.save(os.path.join(OUT_DIR, "preprocess", "cluster_ids.npy"), cluster_ids)
     with open(os.path.join(OUT_DIR, "preprocess", "metadata.pkl"), "wb") as f:
-        pickle.dump(meta, f)
-    with open(os.path.join(OUT_DIR, "preprocess", "cluster_data.pkl"), "wb") as f:
-        pickle.dump(cluster_data, f)
+        pickle.dump(metadata, f)
     log("Preprocessing completed")
     log(f"Output saved to {OUT_DIR}")
 
